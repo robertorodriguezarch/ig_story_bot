@@ -17,7 +17,7 @@ SEEN_FILE = BASE_DIR / "seen_story_ids.json"
 DOWNLOADS_DIR = BASE_DIR / "downloads"
 ALERT_STATE_FILE = BASE_DIR / "alert_state.json"
 ALERT_COOLDOWN_SECONDS = 60 * 60  # 1 hour
-POLL_INTERVAL_SECONDS = 600  # 10 mintues
+POLL_INTERVAL_SECONDS = 900  # 10 mintues
 POST_EXISTING_ON_FIRST_RUN = False  # set  to False later
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
