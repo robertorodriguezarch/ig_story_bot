@@ -126,8 +126,17 @@ def run_loop() -> None:
         me = cl.account_info()
         print(f"Logged in as: @{me.username}")
     except Exception as exc:
-        print(f"Login failed: {type(exc).__name__}: {exc}")
+        error_text = str(exc)
+        print(f"Login failed: {type(exc).__name__}: {error_text}")
         traceback.print_exc()
+
+        send_alert(
+            alert_webhook_url,
+            f"🚨 IG bot failed to login.\nError: `{error_text[:1500]}`",
+            "ig_login_failure",
+        )
+
+        time.sleep(POLL_INTERVAL_SECONDS)
         return
 
     #  Loop only does fetching
