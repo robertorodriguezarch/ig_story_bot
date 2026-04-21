@@ -184,7 +184,13 @@ def run_once(
                 f"⚠️ IG bot is being rate-limited for @{target_username}.\nError: `{error_text[:1500]}`",
                 "ig_rate_limited",
             )
-        elif "challengeresolve" in lowered or "challenge" in lowered:
+        elif (
+            "challengeresolve" in lowered
+            or "challenge" in lowered
+            or "checkpoint" in lowered
+            or "manual verfication required" in lowered
+            or "ufac" in lowered
+        ):
             send_alert(
                 alert_webhook_url,
                 f"🚨 IG bot hit a challenge/checkpoint for @{target_username}.\nError: `{error_text[:1500]}`",
