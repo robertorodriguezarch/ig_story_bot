@@ -15,6 +15,9 @@ BASE_DIR = Path(__file__).resolve().parent
 SESSION_FILE = BASE_DIR / "session.json"
 SEEN_FILE = BASE_DIR / "seen_story_ids.json"
 DOWNLOADS_DIR = BASE_DIR / "downloads"
+ALERT_STATE_FILE = BASE_DIR / "alert_state.json"
+ALERT_COOLDOWN_SECONDS = 60 * 60  # 1 hour
+POLL_INTERVAL_SECONDS = 600  # 10 mintues
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
 
@@ -107,6 +110,7 @@ def run_loop() -> None:
     target_username = os.getenv("TARGET_USERNAME")
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     role_id = os.getenv("DISCORD_IG_STORY_ROLE_ID")
+    alert_webhook_url = os.getenv("DISCORD_ALERT_WEBHOOK_URL")
 
     print(f"Session ID loaded: {bool(sessionid)}")
     print(f"Session ID preview: {sessionid[:12]}..." if sessionid else "No session ID")
@@ -133,12 +137,12 @@ def run_loop() -> None:
                 print(
                     f"\n--- New polling cycle at {datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')} ---"
                 )
-                run_once(cl, target_username, webhook_url, role_id)
+                run_once(cl, target_username, webhook_url, role_id, alert_webhook_url)
             except Exception as exc:
                 print(f"Loop error: {exc}")
 
-            print("Sleeping for 90 seconds...\n")
-            time.sleep(90)
+            print(f"Sleeping for {POLL_INTERVAL_SECONDS} seconds...\n")
+            time.sleep(POLL_INTERVAL_SECONDS)
     except KeyboardInterrupt:
         print("\nStopped by user.")
 
@@ -148,12 +152,47 @@ def run_once(
     target_username: str,
     webhook_url: str,
     role_id: str | None,
+    alert_webhook_url: str | None,
 ) -> None:
     try:
         user = cl.user_info_by_username_v1(target_username)
         stories = cl.user_stories(user.pk)
+
+        clear_alert("ig_challenge")
+        clear_alert("ig_login_required")
+        clear_alert("ig_generic_fetch_error")
+        clear_alert("ig_rate_limited")
     except Exception as exc:
-        print(f"Failed to fetch stories for @{target_username}: {exc}")
+        error_text = str(exc)
+        print(f"Failed to fetch stories for @{target_username}: {error_text}")
+
+        lowered = error_text.lower()
+
+        if "429" in lowered or "too many 429" in lowered:
+            send_alert(
+                alert_webhook_url,
+                f"⚠️ IG bot is being rate-limited for @{target_username}.\nError: `{error_text[:1500]}`",
+                "ig_rate_limited",
+            )
+        elif "challengeresolve" in lowered or "challenge" in lowered:
+            send_alert(
+                alert_webhook_url,
+                f"🚨 IG bot hit a challenge/checkpoint for @{target_username}.\nError: `{error_text[:1500]}`",
+                "ig_challenge",
+            )
+        elif "login_required" in lowered:
+            send_alert(
+                alert_webhook_url,
+                f"🚨 IG bot session is no longer valid for @{target_username}.\nError: `{error_text[:1500]}`",
+                "ig_login_required",
+            )
+        else:
+            send_alert(
+                alert_webhook_url,
+                f"⚠️ IG bot fetch failed for @{target_username}.\nError: `{error_text[:1500]}`",
+                "ig_generic_fetch_error",
+            )
+
         return
 
     if not stories:
@@ -211,6 +250,59 @@ def initialize_seen_ids_from_current_stories(stories) -> None:
     seen_ids = {str(story.pk) for story in stories}
     save_seen_ids(seen_ids)
     print(f"Initialized seen_story_ids.json with {len(seen_ids)} current stories.")
+
+
+def load_alert_state() -> dict:
+    if not ALERT_STATE_FILE.exists():
+        return {}
+    try:
+        return json.loads(ALERT_STATE_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def save_alert_state(state: dict) -> None:
+    ALERT_STATE_FILE.write_text(json.dumps(state, indent=2))
+
+
+def should_send_alert(alert_key: str) -> bool:
+    state = load_alert_state()
+    last_sent = state.get(alert_key, 0)
+    now = time.time()
+
+    if now - last_sent >= ALERT_COOLDOWN_SECONDS:
+        state[alert_key] = now
+        save_alert_state(state)
+        return True
+
+    return False
+
+
+def clear_alert(alert_key: str) -> None:
+    state = load_alert_state()
+    if alert_key in state:
+        del state[alert_key]
+        save_alert_state(state)
+
+
+def send_alert(alert_webhook_url: str | None, message: str, alert_key: str) -> None:
+    if not alert_webhook_url:
+        return
+
+    if not should_send_alert(alert_key):
+        return
+
+    payload = {
+        "username": "IG Bot Alerts",
+        "content": message,
+    }
+
+    try:
+        response = requests.post(alert_webhook_url, json=payload, timeout=30)
+        response.raise_for_status()
+        print(f"Sent alert: {alert_key}")
+    except Exception as exc:
+        print(f"Failed to send alert {alert_key}: {exc}")
 
 
 if __name__ == "__main__":
