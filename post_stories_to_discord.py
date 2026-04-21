@@ -89,7 +89,7 @@ def post_story_to_discord(
 
     payload = {
         "username": f"@{target_username}",
-        "avatar_url": "https://scontent-atl3-2.cdninstagram.com/v/t51.82787-19/656284631_18095830574083910_6941561791975990136_n.jpg?efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-atl3-2.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2gGpQ_yms_whNywcUKaTnobqP0BTUnN1WG4riUMicc6ToAGVt0MWgDp5D8uUu6UMSsQufC2fdK-n_cwsfPPjEE4B&_nc_ohc=IIiI6qBajLoQ7kNvwEpkids&_nc_gid=HaO6iTmAm1hylxTMluQlyQ&edm=AP4sbd4BAAAA&ccb=7-5&oh=00_Af1hkO4BDAuc76-EnrZCccUx_Doeb08vt3EqtqMA5zn-yQ&oe=69DF16C1&_nc_sid=7a9f4b",
+        "avatar_url": "https://scontent-atl3-2.cdninstagram.com/v/t51.82787-19/669755601_18097382687083910_6324265723229788839_n.jpg?stp=dst-jpg_s320x320_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-atl3-2.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2gFNg49u2H-dg_jQxqdUOZcpcx3Q9cAqsAG6uY0SLqs3Y81qBPXx6kC3j1d3BSX8X9qXpJeneKkpjOLDBYf1BJno&_nc_ohc=ai8pCZLOxDUQ7kNvwFSyL8k&_nc_gid=Rd-jfuslOWhAYcJN6tY9Sg&edm=AOQ1c0wBAAAA&ccb=7-5&oh=00_Af2pWowoo8nNhRl4TuhDIyb_jVYw2hWqYuqnYfkd1bmgpg&oe=69ED8ABD&_nc_sid=8b3546",
         "content": f"<@&{role_id}>" if role_id else "",
         "allowed_mentions": {"roles": [role_id]} if role_id else {},
         "embeds": [embed],
