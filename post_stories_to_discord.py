@@ -18,6 +18,7 @@ DOWNLOADS_DIR = BASE_DIR / "downloads"
 ALERT_STATE_FILE = BASE_DIR / "alert_state.json"
 ALERT_COOLDOWN_SECONDS = 60 * 60  # 1 hour
 POLL_INTERVAL_SECONDS = 600  # 10 mintues
+POST_EXISTING_ON_FIRST_RUN = True  # set  to False later
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
 
@@ -209,13 +210,18 @@ def run_once(
         return
 
     if not SEEN_FILE.exists():
-        initialize_seen_ids_from_current_stories(stories)
-        print(
-            "First run detected. Current stories marked as seen; waiting for new ones."
-        )
-        return
+        if POST_EXISTING_ON_FIRST_RUN:
+            print("First run: posting existing stories.")
+            seen_ids = set()
+        else:
+            initialize_seen_ids_from_current_stories(stories)
+            print(
+                "First run detected. Current stories marked as seen; waiting for new ones."
+            )
+            return
+    else:
+        seen_ids = load_seen_ids()
 
-    seen_ids = load_seen_ids()
     new_story_count = 0
 
     for story in stories:
