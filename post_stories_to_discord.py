@@ -17,8 +17,10 @@ SEEN_FILE = BASE_DIR / "seen_story_ids.json"
 DOWNLOADS_DIR = BASE_DIR / "downloads"
 ALERT_STATE_FILE = BASE_DIR / "alert_state.json"
 ALERT_COOLDOWN_SECONDS = 60 * 60  # 1 hour
-POLL_INTERVAL_SECONDS = 900  # 15 mintues
-POST_EXISTING_ON_FIRST_RUN = False  # set  to False later
+POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 900))
+POST_EXISTING_ON_FIRST_RUN = (
+    os.getenv("POST_EXISTING_ON_FIRST_RUN", "false").lower() == "true"
+)
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
 
@@ -137,8 +139,28 @@ def run_loop() -> None:
             "ig_login_failure",
         )
 
-        time.sleep(POLL_INTERVAL_SECONDS)
-        return
+        # LOGIN WITH RETRY LOOP
+        while True:
+            try:
+                cl = login_with_sessionid(sessionid)
+                me = cl.account_info()
+                print(f"Logged in as @{me.username}")
+                clear_alert("ig_login_failure")
+                break
+            except Exception as exc:
+                error_text = str(exc)
+                print(f"Login failed: {type(exc).__name__}: {error_text}")
+                traceback.print_exc()
+
+                send_alert(
+                    alert_webhook_url,
+                    f"🚨 IG bot failed to login.\nError: '{error_text[:1500]}'",
+                    "ig_login_failure",
+                )
+                print(
+                    f"Sleeping for {POLL_INTERVAL_SECONDS} seconds before retrying login...\n"
+                )
+                time.sleep(POLL_INTERVAL_SECONDS)
 
     #  Loop only does fetching
     try:
@@ -172,6 +194,7 @@ def run_once(
         clear_alert("ig_login_required")
         clear_alert("ig_generic_fetch_error")
         clear_alert("ig_rate_limited")
+        clear_alert("ig_bad_response")
     except Exception as exc:
         error_text = str(exc)
         print(f"Failed to fetch stories for @{target_username}: {error_text}")
@@ -188,7 +211,7 @@ def run_once(
             "challengeresolve" in lowered
             or "challenge" in lowered
             or "checkpoint" in lowered
-            or "manual verfication required" in lowered
+            or "manual verification required" in lowered
             or "ufac" in lowered
         ):
             send_alert(
@@ -201,6 +224,12 @@ def run_once(
                 alert_webhook_url,
                 f"🚨 IG bot session is no longer valid for @{target_username}.\nError: `{error_text[:1500]}`",
                 "ig_login_required",
+            )
+        elif "expecting value" in lowered or "jsondecodeerror" in lowered:
+            send_alert(
+                alert_webhook_url,
+                f"⚠️ IG bot received non-JSON/empty response for @{target_username},\nError: '{error_text[:1500]}'",
+                "ig_bad_response",
             )
         else:
             send_alert(
