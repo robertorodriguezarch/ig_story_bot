@@ -10,6 +10,8 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 from instagrapi import Client
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 BASE_DIR = Path(__file__).resolve().parent
 SESSION_FILE = BASE_DIR / "session.json"
@@ -62,7 +64,9 @@ def download_file(url: str, out_path: Path) -> None:
 
 
 def format_story_time(dt: datetime) -> str:
-    return dt.strftime("%m/%d/%y %-I:%M %p")
+    # Convert to Eastern Time (adjust if needed)
+    local_dt = dt.astimezone(ZoneInfo("America/New_York"))
+    return local_dt.strftime("%m/%d/%y %-I:%M %p")
 
 
 def post_story_to_discord(
@@ -91,7 +95,7 @@ def post_story_to_discord(
 
     payload = {
         "username": f"@{target_username}",
-        "avatar_url": "https://scontent-atl3-2.cdninstagram.com/v/t51.82787-19/669755601_18097382687083910_6324265723229788839_n.jpg?stp=dst-jpg_s320x320_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-atl3-2.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2gFNg49u2H-dg_jQxqdUOZcpcx3Q9cAqsAG6uY0SLqs3Y81qBPXx6kC3j1d3BSX8X9qXpJeneKkpjOLDBYf1BJno&_nc_ohc=ai8pCZLOxDUQ7kNvwFSyL8k&_nc_gid=Rd-jfuslOWhAYcJN6tY9Sg&edm=AOQ1c0wBAAAA&ccb=7-5&oh=00_Af2pWowoo8nNhRl4TuhDIyb_jVYw2hWqYuqnYfkd1bmgpg&oe=69ED8ABD&_nc_sid=8b3546",
+        "avatar_url": "https://scontent-atl3-2.cdninstagram.com/v/t51.82787-19/669755601_18097382687083910_6324265723229788839_n.jpg?efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-atl3-2.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2gFocDvBy60Op2u-fmgyyBl3ClfXm-VsL7Ozla_FQsgGVdOKMxNxwA58EEY7hQ-dG53WHOKsr2NEFPN35BstlKCS&_nc_ohc=cwPt_poyueEQ7kNvwHMhfkJ&_nc_gid=ZmqDh8wpvNr4mJztplTDeQ&edm=AP4sbd4BAAAA&ccb=7-5&oh=00_Af0rkwpliJY1L9KNA-5JXJBkse_b_ids3NrUfmysL2cYUw&oe=69F492BD&_nc_sid=7a9f4b",
         "content": f"<@&{role_id}>" if role_id else "",
         "allowed_mentions": {"roles": [role_id]} if role_id else {},
         "embeds": [embed],
