@@ -4,14 +4,13 @@ import json
 import os
 import time
 import traceback
-from datetime import datetime
-from pathlib import Path
-
 import requests
+
 from dotenv import load_dotenv
 from instagrapi import Client
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 SESSION_FILE = BASE_DIR / "session.json"
@@ -25,6 +24,12 @@ POST_EXISTING_ON_FIRST_RUN = (
 )
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
+
+
+class HardInstagramStop(Exception):
+    """Raised when Instagram requires human intervention."""
+
+    pass
 
 
 def build_client() -> Client:
@@ -143,28 +148,7 @@ def run_loop() -> None:
             "ig_login_failure",
         )
 
-        # LOGIN WITH RETRY LOOP
-        while True:
-            try:
-                cl = login_with_sessionid(sessionid)
-                me = cl.account_info()
-                print(f"Logged in as @{me.username}")
-                clear_alert("ig_login_failure")
-                break
-            except Exception as exc:
-                error_text = str(exc)
-                print(f"Login failed: {type(exc).__name__}: {error_text}")
-                traceback.print_exc()
-
-                send_alert(
-                    alert_webhook_url,
-                    f"🚨 IG bot failed to login.\nError: '{error_text[:1500]}'",
-                    "ig_login_failure",
-                )
-                print(
-                    f"Sleeping for {POLL_INTERVAL_SECONDS} seconds before retrying login...\n"
-                )
-                time.sleep(POLL_INTERVAL_SECONDS)
+        raise HardInstagramStop("Login failed; human intervention required.")
 
     #  Loop only does fetching
     try:
@@ -174,11 +158,17 @@ def run_loop() -> None:
                     f"\n--- New polling cycle at {datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')} ---"
                 )
                 run_once(cl, target_username, webhook_url, role_id, alert_webhook_url)
+
+            except HardInstagramStop as exc:
+                print(f"Hard stop: {exc}")
+                raise
+
             except Exception as exc:
                 print(f"Loop error: {exc}")
 
             print(f"Sleeping for {POLL_INTERVAL_SECONDS} seconds...\n")
             time.sleep(POLL_INTERVAL_SECONDS)
+
     except KeyboardInterrupt:
         print("\nStopped by user.")
 
@@ -217,18 +207,22 @@ def run_once(
             or "checkpoint" in lowered
             or "manual verification required" in lowered
             or "ufac" in lowered
+            or "exceeded 30 redirects" in lowered
+            or "too many redirects" in lowered
         ):
             send_alert(
                 alert_webhook_url,
-                f"🚨 IG bot hit a challenge/checkpoint for @{target_username}.\nError: `{error_text[:1500]}`",
+                f"🚨 IG bot hit a challenge/checkpoint for @{target_username}. Bot stopped.\nError: `{error_text[:1500]}`",
                 "ig_challenge",
             )
+            raise HardInstagramStop("Challenge/checkpoint detected; bot stopped.")
         elif "login_required" in lowered:
             send_alert(
                 alert_webhook_url,
-                f"🚨 IG bot session is no longer valid for @{target_username}.\nError: `{error_text[:1500]}`",
+                f"🚨 IG bot session is no longer valid for @{target_username}. Bot stopped.\nError: `{error_text[:1500]}`",
                 "ig_login_required",
             )
+            raise HardInstagramStop("login_required detected; bot stopped.")
         elif "expecting value" in lowered or "jsondecodeerror" in lowered:
             send_alert(
                 alert_webhook_url,
@@ -360,4 +354,8 @@ def send_alert(alert_webhook_url: str | None, message: str, alert_key: str) -> N
 
 
 if __name__ == "__main__":
-    run_loop()
+    try:
+        run_loop()
+    except HardInstagramStop as exc:
+        print(f"Bot stopped safely: {exc}")
+        raise SystemExit(0)
