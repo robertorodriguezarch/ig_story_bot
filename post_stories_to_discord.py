@@ -81,6 +81,7 @@ def post_story_to_discord(
     media_path: Path,
     is_video: bool,
     role_id: str | None,
+    avatar_url: str | None,
 ) -> None:
     footer_text = format_story_time(taken_at)
 
@@ -100,7 +101,7 @@ def post_story_to_discord(
 
     payload = {
         "username": f"@{target_username}",
-        "avatar_url": "https://scontent-atl3-2.cdninstagram.com/v/t51.82787-19/669755601_18097382687083910_6324265723229788839_n.jpg?efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-atl3-2.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2gFocDvBy60Op2u-fmgyyBl3ClfXm-VsL7Ozla_FQsgGVdOKMxNxwA58EEY7hQ-dG53WHOKsr2NEFPN35BstlKCS&_nc_ohc=cwPt_poyueEQ7kNvwHMhfkJ&_nc_gid=ZmqDh8wpvNr4mJztplTDeQ&edm=AP4sbd4BAAAA&ccb=7-5&oh=00_Af0rkwpliJY1L9KNA-5JXJBkse_b_ids3NrUfmysL2cYUw&oe=69F492BD&_nc_sid=7a9f4b",
+        "avatar_url": avatar_url,
         "content": f"<@&{role_id}>" if role_id else "",
         "allowed_mentions": {"roles": [role_id]} if role_id else {},
         "embeds": [embed],
@@ -123,6 +124,7 @@ def run_loop() -> None:
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     role_id = os.getenv("DISCORD_IG_STORY_ROLE_ID")
     alert_webhook_url = os.getenv("DISCORD_ALERT_WEBHOOK_URL")
+    avatar_url = os.getenv("DISCORD_AVATART_URL")
 
     print(f"Session ID loaded: {bool(sessionid)}")
     print(f"Session ID preview: {sessionid[:12]}..." if sessionid else "No session ID")
@@ -157,7 +159,7 @@ def run_loop() -> None:
                 print(
                     f"\n--- New polling cycle at {datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')} ---"
                 )
-                run_once(cl, target_username, webhook_url, role_id, alert_webhook_url)
+                run_once(cl, target_username, webhook_url, role_id, alert_webhook_url, avatar_url)
 
             except HardInstagramStop as exc:
                 print(f"Hard stop: {exc}")
@@ -179,6 +181,7 @@ def run_once(
     webhook_url: str,
     role_id: str | None,
     alert_webhook_url: str | None,
+    avatar_url: str | None,
 ) -> None:
     try:
         user = cl.user_info_by_username_v1(target_username)
@@ -282,6 +285,7 @@ def run_once(
                 media_path=media_path,
                 is_video=is_video,
                 role_id=role_id,
+                avatar_url=avatar_url,
             )
             seen_ids.add(story_pk)
             new_story_count += 1
