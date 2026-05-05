@@ -22,6 +22,7 @@ POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 900))
 POST_EXISTING_ON_FIRST_RUN = (
     os.getenv("POST_EXISTING_ON_FIRST_RUN", "false").lower() == "true"
 )
+RUN_ONCE = os.getenv("RUN_ONCE", "false").lower() == "true"
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
 
@@ -167,6 +168,10 @@ def run_loop() -> None:
 
             except Exception as exc:
                 print(f"Loop error: {exc}")
+
+            if RUN_ONCE:
+                print("RUN_ONCE=true, exiting after one pollying cycle.")
+                return
 
             print(f"Sleeping for {POLL_INTERVAL_SECONDS} seconds...\n")
             time.sleep(POLL_INTERVAL_SECONDS)
