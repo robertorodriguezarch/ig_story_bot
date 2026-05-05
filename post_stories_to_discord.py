@@ -13,16 +13,23 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
 SESSION_FILE = BASE_DIR / "session.json"
 SEEN_FILE = BASE_DIR / "seen_story_ids.json"
 DOWNLOADS_DIR = BASE_DIR / "downloads"
 ALERT_STATE_FILE = BASE_DIR / "alert_state.json"
 ALERT_COOLDOWN_SECONDS = 60 * 60  # 1 hour
+
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 900))
 POST_EXISTING_ON_FIRST_RUN = (
     os.getenv("POST_EXISTING_ON_FIRST_RUN", "false").lower() == "true"
 )
 RUN_ONCE = os.getenv("RUN_ONCE", "false").lower() == "true"
+
+print(f"Config loaded: RUN_ONCE={RUN_ONCE},"
+      f"POLL_INTERVAL_SECONDS={POLL_INTERVAL_SECONDS},"
+      f"POST_EXISTING_ON_FIRST_RUN={POST_EXISTING_ON_FIRST_RUN}")
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
 
@@ -118,14 +125,13 @@ def post_story_to_discord(
 
 
 def run_loop() -> None:
-    load_dotenv()
 
     sessionid = os.getenv("IG_SESSIONID")
     target_username = os.getenv("TARGET_USERNAME")
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     role_id = os.getenv("DISCORD_IG_STORY_ROLE_ID")
     alert_webhook_url = os.getenv("DISCORD_ALERT_WEBHOOK_URL")
-    avatar_url = os.getenv("DISCORD_AVATART_URL")
+    avatar_url = os.getenv("DISCORD_AVATAR_URL")
 
     print(f"Session ID loaded: {bool(sessionid)}")
     print(f"Session ID preview: {sessionid[:12]}..." if sessionid else "No session ID")
@@ -170,7 +176,7 @@ def run_loop() -> None:
                 print(f"Loop error: {exc}")
 
             if RUN_ONCE:
-                print("RUN_ONCE=true, exiting after one pollying cycle.")
+                print("RUN_ONCE=true, exiting after one polling cycle.")
                 return
 
             print(f"Sleeping for {POLL_INTERVAL_SECONDS} seconds...\n")
