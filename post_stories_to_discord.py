@@ -19,6 +19,7 @@ SESSION_FILE = BASE_DIR / "session.json"
 SEEN_FILE = BASE_DIR / "seen_story_ids.json"
 DOWNLOADS_DIR = BASE_DIR / "downloads"
 ALERT_STATE_FILE = BASE_DIR / "alert_state.json"
+TRIGGER_FILE = BASE_DIR / "trigger_story_now"
 ALERT_COOLDOWN_SECONDS = 60 * 60  # 1 hour
 
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", 900))
@@ -27,9 +28,11 @@ POST_EXISTING_ON_FIRST_RUN = (
 )
 RUN_ONCE = os.getenv("RUN_ONCE", "false").lower() == "true"
 
-print(f"Config loaded: RUN_ONCE={RUN_ONCE},"
-      f"POLL_INTERVAL_SECONDS={POLL_INTERVAL_SECONDS},"
-      f"POST_EXISTING_ON_FIRST_RUN={POST_EXISTING_ON_FIRST_RUN}")
+print(
+    f"Config loaded: RUN_ONCE={RUN_ONCE},"
+    f"POLL_INTERVAL_SECONDS={POLL_INTERVAL_SECONDS},"
+    f"POST_EXISTING_ON_FIRST_RUN={POST_EXISTING_ON_FIRST_RUN}"
+)
 
 DOWNLOADS_DIR.mkdir(exist_ok=True)
 
@@ -109,11 +112,13 @@ def post_story_to_discord(
 
     payload = {
         "username": f"@{target_username}",
-        "avatar_url": avatar_url,
         "content": f"<@&{role_id}>" if role_id else "",
         "allowed_mentions": {"roles": [role_id]} if role_id else {},
         "embeds": [embed],
     }
+
+    if avatar_url:
+        payload["avatar_url"] = avatar_url
 
     with media_path.open("rb") as f:
         files = {
@@ -122,6 +127,33 @@ def post_story_to_discord(
         }
         response = requests.post(webhook_url, files=files, timeout=60)
         response.raise_for_status()
+
+
+def sleep_with_manual_trigger(seconds: int) -> None:
+    """
+    Sleeps in short chunks so the bot can be manually woken up without
+    restarting the service.
+
+    To trigger an immediate story check: touch /home/pi/ig_story_bot/trigger_story_now
+    """
+
+    print(f"Sleeping for up to {seconds} seconds...")
+
+    slept = 0
+    check_every = 5
+
+    while slept < seconds:
+        if TRIGGER_FILE.exists():
+            try:
+                TRIGGER_FILE.unlink()
+            except FileNotFoundError:
+                pass
+
+            print("Manual trigger detected. Waking up early for a story check.")
+            return
+
+        time.sleep(check_every)
+        slept += check_every
 
 
 def run_loop() -> None:
@@ -166,7 +198,14 @@ def run_loop() -> None:
                 print(
                     f"\n--- New polling cycle at {datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')} ---"
                 )
-                run_once(cl, target_username, webhook_url, role_id, alert_webhook_url, avatar_url)
+                run_once(
+                    cl,
+                    target_username,
+                    webhook_url,
+                    role_id,
+                    alert_webhook_url,
+                    avatar_url,
+                )
 
             except HardInstagramStop as exc:
                 print(f"Hard stop: {exc}")
@@ -179,8 +218,7 @@ def run_loop() -> None:
                 print("RUN_ONCE=true, exiting after one polling cycle.")
                 return
 
-            print(f"Sleeping for {POLL_INTERVAL_SECONDS} seconds...\n")
-            time.sleep(POLL_INTERVAL_SECONDS)
+            sleep_with_manual_trigger(POLL_INTERVAL_SECONDS)
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
